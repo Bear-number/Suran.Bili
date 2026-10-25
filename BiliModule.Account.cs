@@ -199,31 +199,40 @@ public partial class BiliModule
                 + "点赞总数有分钟级延迟，不拿来判定";
         });
     [XmlFunction(FunctionMode.OneShot)]
-    [Description("投币，amount 1 或 2（每天 2 币额度由 B站自己管）；alsoLike=true 顺带点赞")]
+    [Description("投币，amount 1 或 2（每天上限由 B站管，币投出去不可撤回）；alsoLike=true 顺带点赞。"
+        + "实测提醒：这条纯 HTTP 会被 B站要极验挡住（code -401 非法访问 + data.ga_data），币没花出去但也投不成——真要投请主人在浏览器里点")]
     public Task BiliCoin(string target, int amount = 1, bool alsoLike = false) =>
         WriteAsync(BiliWrite.Coin, target, "投 " + Math.Clamp(amount, 1, 2).ToString(CultureInfo.InvariantCulture) + " 币", "", async (aid, bvid, csrf) =>
         {
             BiliApi api = OpenApi();
-            await api.PostAsync("https://api.bilibili.com/x/web-interface/coin",
-                Form(new { aid, bvid, multiply = Math.Clamp(amount, 1, 2), select_like = alsoLike ? 1 : 0, csrf }), DestroyCancellationToken);
-            return await ReadBackLikeAsync(bvid, aid);
+            await api.PostAsync("https://api.bilibili.com/x/web-interface/coin/add",
+                Form(new { aid, bvid, multiply = Math.Clamp(amount, 1, 2), select_like = alsoLike ? 1 : 0, csrf }), DestroyCancellationToken,
+                "https://www.bilibili.com/video/" + bvid + "/");
+            JsonNode mine = await api.GetAsync("https://api.bilibili.com/x/web-interface/archive/coins?aid=" + aid,
+                DestroyCancellationToken, "https://www.bilibili.com/video/" + bvid + "/");
+            return "回查已投币数 multiply=" + BiliJson.Text(mine, "data") + "（0 就是没投成，多半卡在极验 -401，请人工在浏览器里投）";
         });
     [XmlFunction(FunctionMode.OneShot)]
-    [Description("收藏到指定收藏夹（folderId 从 BiliFavorites 拿；不传就丢进默认收藏夹）")]
+    [Description("收藏到指定收藏夹（folderId 从 BiliFavorites 拿，不给就用自己那个默认夹）；undo=true 取消收藏。"
+        + "实测：这条走 x/v2/fav/video/add|del（v3 的 resource/deal 我试三种参数都 -400）")]
     public Task BiliFavorite(string target, string folderId = "", bool undo = false) =>
-        WriteAsync(BiliWrite.Favorite, target, (undo ? "取消收藏" : "收藏") + (folderId.Trim().Length > 0 ? "到收藏夹 " + folderId : "到默认收藏夹"), "",
+        WriteAsync(BiliWrite.Favorite, target, (undo ? "取消收藏" : "收藏") + (folderId.Trim().Length > 0 ? "进收藏夹 " + folderId : "进默认收藏夹"), folderId.Trim(),
         async (aid, bvid, csrf) =>
         {
+            string folder = folderId.Trim().Length > 0 ? folderId.Trim() : await DefaultFolderIdAsync();
             BiliApi api = OpenApi();
-            await api.PostAsync("https://api.bilibili.com/x/v3/fav/resource/deal",
-                Form(new {
-                    rid = aid, biz_type = 2,
-                    add_media_ids = undo ? "" : (folderId.Trim().Length > 0 ? folderId.Trim() : "0"),
-                    del_media_ids = undo ? (folderId.Trim().Length > 0 ? folderId.Trim() : "0") : "",
-                    csrf
-                }), DestroyCancellationToken);
-            return await ReadBackLikeAsync(bvid, aid);
-        });
+            await api.PostAsync("https://api.bilibili.com/x/v2/fav/video/" + (undo ? "del" : "add"),
+                Form(new { aid, rid = folder, csrf }), DestroyCancellationToken,
+                "https://www.bilibili.com/video/" + bvid + "/");
+            JsonNode check = await api.GetAsync("https://api.bilibili.com/x/v3/fav/resource/list?media_id=" + folder
+                + "&pn=1&ps=20&rid=0&keyword=&order=mtime&type=0", DestroyCancellationToken, "https://space.bilibili.com/");
+            int count = (int)BiliJson.Number(BiliJson.Pick(check, "data", "info"), "media_count");
+            bool inside = (BiliJson.Pick(check, "data", "medias")?.AsArray() ?? new JsonArray())
+                .Any(node => BiliJson.Text(node, "bvid") == bvid);
+            return "收藏夹 " + folder + "（夹内 " + count + " 条）现在" + (inside ? "含" : "不含") + "这条 " + bvid
+                + "，与" + (undo ? "「取消收藏」" : "「收藏」") + "的预期" + (inside == !undo ? "一致" : "不一致，再去页面看一眼");
+        }
+    );
     [XmlFunction(FunctionMode.OneShot)]
     [Description("关注/取消关注某个 UID（undo=true 取关）")]
     public Task BiliFollow(string mid, bool undo = false) =>
@@ -348,6 +357,20 @@ public partial class BiliModule
         auth.Save();
         interactor.Poke("登录成功，cookie 已存本机 " + auth.FilePath + "（字段名：" + string.Join(",", auth.Names.OrderBy(n => n))
             + "，值不外泄）。复验：" + await ProbeNavAsync() + "\n现在能查收藏夹、稍后再看、历史了");
+    }
+    /// <summary>取自己默认收藏夹的 id（实测列表里第一个就是「默认收藏夹」）</summary>
+    async Task<string> DefaultFolderIdAsync()
+    {
+        string mid = ((long)await OwnMidAsync()).ToString(CultureInfo.InvariantCulture);
+        JsonNode data = await OpenApi().GetAsync("https://api.bilibili.com/x/v3/fav/folder/created/list-all?up_mid=" + mid,
+            DestroyCancellationToken, "https://space.bilibili.com/");
+        JsonNode? first = (BiliJson.Pick(data, "data", "list")?.AsArray() ?? new JsonArray()).FirstOrDefault();
+        string id = BiliJson.Text(first, "id");
+        if (id.Length == 0)
+        {
+            throw new Exception("取不到自己的默认收藏夹 id（登录态可能废了）：BiliLogin(action=check) 复查");
+        }
+        return id;
     }
     async Task<double> OwnMidAsync()
     {

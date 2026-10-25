@@ -125,20 +125,17 @@ B 站全功能插件：**视频查询 + 账号能力 + 直播查询**合在一�
 - 成功时 cookie 有**两种下发形态**：`Set-Cookie` 响应头 + `data.url` 的查询串，两种都收；只收一种会出现"说登录成功但 cookie 是空的"
 - 存的就是 `SESSDATA / bili_jct / DedeUserID / DedeUserID__ckMd5 / sid`；`bili_jct` 是写接口的 csrf；存完立刻用 `nav` 的 `isLogin/uname/mid` 复验
 
-## 写动作的实测状态（别再拿账号硬撞）
-| 动作 | 端点 | 状态 |
+## 写动作的实测状态（2026-10-25 用真实账号成对测过，测完全部复原）
+| 动作 | 端点与参数 | 状态 |
 |---|---|---|
-| 点赞视频 | `x/web-interface/archive/like`（`aid`+`like=1\|2`+`csrf`） | **本机实测通过**：`has/like` 从 0→1→0，账号已复原 |
-| 投币 | `x/web-interface/coin` | 照文档拼，未实机 |
-| 收藏 | `x/v3/fav/resource/deal` | 照文档拼，未实机 |
-| 关注/取关 | `x/relation/modify`（`act=1\|2`） | 照文档拼，未实机 |
-| 发评论 | `x/v2/reply/add` | 照文档拼，未实机 |
-| 发弹幕 | `x/v2/dm/web/send` | **参数没把握**，未实机；发出去是公开内容，第一次务必人工盯 |
-| 发动态 | `api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/create`（`type=4` 纯文字） | 照文档拼，未实机 |
-| 赞动态 | `x/dynamic/feed/dyn/thumb`（JSON 正文 `dyn_id_str`+`up`） | 照文档拼，未实机 |
-| 删动态 | `dynamic_svr/rm_dynamic` | 照文档拼，未实机 |
-
-踩过的坑记下来：点赞一开始一直回 **-400 请求错误**，原因不是签名也不是 cookie，是**参数名用错了**（我发了 `small_like` 并调了不存在的 `like/cancel` 路径）。WBI 签名对这条没用，别往那个方向找。
+| 点赞/取消 | `POST x/web-interface/archive/like`，`aid`+**`like=1\|2`**+`csrf` | **实测通过**。回查 `GET x/web-interface/archive/has/like` → data 0/1 即时生效；`stat.like` 总数有分钟级延迟，不能拿来判定。踩过：`like/cancel` 这个路径不存在、没有 `small_like` 参数，写错就是 `-400 请求错误`（跟 WBI 签名无关，加签名也拒） |
+| 收藏/取消 | `POST x/v2/fav/video/add`、`x/v2/fav/video/del`，参数 `aid`+`rid`(收藏夹id)+`csrf` | **实测通过**（code 0）。`x/v3/fav/resource/deal` 三种参数写法都 `-400`，别用；收藏夹 id 从 `created/list-all` 拿（列表第一个就是「默认收藏夹」，实测 4138773831），夹内数量看 `resource/list` 的 `data.info.media_count`（`created/list-all` 里的 `media_count` 滞后，别信） |
+| 关注/取关 | `POST x/relation/modify`，`fid`+`act=1\|2`+`re_base=0&device=1`+`csrf` | **参数形状已验**：`fid` 传自己回 **22001 不能关注自己**（业务码，不是 -400）。真实关注会给对方产生"XX关注了你"通知，所以没拿别人号试，等你指定 |
+| 发动态 | `POST api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/create`，`dynamic_id=0&type=4&rid=0&content&csrf_token&csrf` | **实测通过**。id 在 **`data.dynamic_id_str`**（不是 `id_str`，读错会以为没发上） |
+| 删动态 | `POST .../dynamic_svr/rm_dynamic`（`dynamic_id`+`csrf_token`+`csrf`），或新式 `x/dynamic/feed/operate/remove` | **实测通过**：删后 `detail?id=` 回 **4101152**、取不到 item |
+| 发评论 | `POST x/v2/reply/add`，`oid`+`type`+`message`+`plat=1`+`csrf` | **半通**：回 code 0 且给 `rpid`，但**不回 `rstr`（删除凭据）**，且 `reply?type=17` / `reply/main?mode=3` 都读不到我发的那条（可能在审核或读法不对）→ 撤销路径没验证成，**发出去前务必人工盯** |
+| 投币 | `POST x/web-interface/coin/add`（少写 `/add` 会 404） | **纯 HTTP 不通**：回 **-401 非法访问 + `data.ga_data`（极验人机验证）**。币没花出去（`archive/coins` 回 `multiply=0`），要投只能在浏览器里人工投 |
+| 发弹幕 | `x/v2/dm/web/send` 一族 | **没测**：弹幕撤不掉，会永久挂在别人视频上，要你单独点头 |
 
 ## 未验证 / 不支持
 - **写接口一个都没实机跑过**（要真登录 + 真发东西）。点赞/投币/收藏/关注/回评论的 URL 与参数按公开 web 端点的通用写法 + `csrf` 组装，`BiliSendDanmaku` 的 `x/v2/dm/web/send` 尤其没把握；第一次用请只开一个动作、先人工盯一次

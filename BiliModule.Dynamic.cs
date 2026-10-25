@@ -53,7 +53,12 @@ public partial class BiliModule
                     up_choose_comment = 0, up_close_comment = 0, at_uids = atUids,
                     csrf_token = csrf, csrf
                 }), DestroyCancellationToken, "https://t.bilibili.com/");
-            string idStr = BiliJson.Text(BiliJson.Pick(data, "data"), "id_str");
+            // 实测：create 回的是 data.dynamic_id_str / dynamic_id，不是 id_str（读错会以为没发上）
+            string idStr = BiliJson.Text(BiliJson.Pick(data, "data"), "dynamic_id_str");
+            if (idStr.Length == 0)
+            {
+                idStr = BiliJson.Text(BiliJson.Pick(data, "data"), "id_str");
+            }
             if (idStr.Length == 0)
             {
                 return "接口回了 code 0 但没给动态 id，去 BiliDynamic 看一眼是不是真发上了，别当成功";
