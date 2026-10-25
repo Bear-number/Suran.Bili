@@ -12,7 +12,10 @@ public enum BiliWrite
     Follow,
     Reply,
     Danmaku,
-    WatchLater
+    WatchLater,
+    Dynamic,
+    DynamicLike,
+    DynamicDelete
 }
 
 /// <summary>
@@ -21,7 +24,11 @@ public enum BiliWrite
 /// </summary>
 public sealed class BiliGuard
 {
-    public static readonly string[] WriteNames = new[] { "like", "coin", "favorite", "follow", "reply", "danmaku", "watchlater" };
+    public static readonly string[] WriteNames = new[]
+    {
+        "like", "coin", "favorite", "follow", "reply", "danmaku", "watchlater",
+        "dynamic", "dynamiclike", "dynamicdelete"
+    };
 
     public static BiliWrite Parse(string name)
     {
@@ -33,6 +40,9 @@ public sealed class BiliGuard
             "reply" or "评论" => BiliWrite.Reply,
             "danmaku" or "弹幕" => BiliWrite.Danmaku,
             "watchlater" or "稍后再看" => BiliWrite.WatchLater,
+            "dynamic" or "发动态" or "动态" => BiliWrite.Dynamic,
+            "dynamiclike" or "赞动态" => BiliWrite.DynamicLike,
+            "dynamicdelete" or "删动态" => BiliWrite.DynamicDelete,
             _ => throw new Exception("不认的写动作「" + name + "」，可选：" + string.Join("/", WriteNames))
         };
     }
@@ -45,6 +55,9 @@ public sealed class BiliGuard
             BiliWrite.Follow => "关注",
             BiliWrite.Reply => "发评论",
             BiliWrite.Danmaku => "发弹幕",
+            BiliWrite.Dynamic => "发动态",
+            BiliWrite.DynamicLike => "点赞动态",
+            BiliWrite.DynamicDelete => "删除动态",
             _ => "稍后再看"
         };
     }

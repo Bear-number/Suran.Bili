@@ -17,7 +17,7 @@ B 站全功能插件：**视频查询 + 账号能力 + 直播查询**合在一�
 - `Alife.Function.FunctionCaller`
 - 无外部程序、无 NuGet/pip 依赖；纯 HTTP。**代理要另说**：B站 web 接口国内直连可用（本机实测），所以默认不配代理。
 
-## AI 函数（27 个）
+## AI 函数（33 个）
 ### 视频侧（免登录）
 | 函数 | 说明 |
 |---|---|
@@ -49,10 +49,20 @@ B 站全功能插件：**视频查询 + 账号能力 + 直播查询**合在一�
 | BiliHistory(size=20, keyword="") | 观看历史，可按标题找看过什么 |
 | BiliFollowing(mid?, page, take) | 关注列表（对方设了私密就取不到） |
 
+### 动态（读免登录不行、要登录；发/删是写操作）
+| 函数 | 说明 |
+|---|---|
+| BiliDynamic(offset, size=10, category=all) | 关注流动态：作者·时间·类型·正文/所指视频图片专栏·转赞评，翻页用回报里的 offset |
+| BiliUserDynamic(mid, offset, size=10) | 某 UP 主的动态 |
+| BiliDynamicDetail(id) | 一条动态完整内容（含被转发的原动态与所附视频） |
+| BiliPostDynamic(text, atUids="") | 发文字动态（写操作，可 @人） |
+| BiliLikeDynamic(id, undo=false) | 赞/取消赞一条动态（`up=1\|2`，JSON 正文） |
+| BiliDeleteDynamic(id) | 删掉自己发的动态，删完再用详情接口核对一次 |
+
 ### 写操作（默认关 + 默认要确认）
 | 函数 | 说明 |
 |---|---|
-| BiliLike(target, undo=false) | 点赞/取消，**发完回查统计**并说明这些数有分钟级延迟 |
+| BiliLike(target, undo=false) | 点赞/取消。**实测**：同一个端点带 `like=1\|2`（没有 `like/cancel` 这个路径），回查用 `archive/has/like` 即时看 0/1 —— 点赞总数有分钟级延迟，不能拿来判定 |
 | BiliCoin(target, amount=1, alsoLike=false) | 投 1~2 币 |
 | BiliFavorite(target, folderId="", undo=false) | 收藏/取消（folderId 从 BiliFavorites 拿） |
 | BiliFollow(mid, undo=false) | 关注/取关，回查对方粉丝数 |
@@ -114,6 +124,21 @@ B 站全功能插件：**视频查询 + 账号能力 + 直播查询**合在一�
 - `.../qrcode/poll?qrcode_key=` → 外层 `code` 恒 0，状态在 **`data.code`**：0 成功 / 86101 未扫码 / 86090 已扫码待确认 / 86038 已失效；约 180 秒过期
 - 成功时 cookie 有**两种下发形态**：`Set-Cookie` 响应头 + `data.url` 的查询串，两种都收；只收一种会出现"说登录成功但 cookie 是空的"
 - 存的就是 `SESSDATA / bili_jct / DedeUserID / DedeUserID__ckMd5 / sid`；`bili_jct` 是写接口的 csrf；存完立刻用 `nav` 的 `isLogin/uname/mid` 复验
+
+## 写动作的实测状态（别再拿账号硬撞）
+| 动作 | 端点 | 状态 |
+|---|---|---|
+| 点赞视频 | `x/web-interface/archive/like`（`aid`+`like=1\|2`+`csrf`） | **本机实测通过**：`has/like` 从 0→1→0，账号已复原 |
+| 投币 | `x/web-interface/coin` | 照文档拼，未实机 |
+| 收藏 | `x/v3/fav/resource/deal` | 照文档拼，未实机 |
+| 关注/取关 | `x/relation/modify`（`act=1\|2`） | 照文档拼，未实机 |
+| 发评论 | `x/v2/reply/add` | 照文档拼，未实机 |
+| 发弹幕 | `x/v2/dm/web/send` | **参数没把握**，未实机；发出去是公开内容，第一次务必人工盯 |
+| 发动态 | `api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/create`（`type=4` 纯文字） | 照文档拼，未实机 |
+| 赞动态 | `x/dynamic/feed/dyn/thumb`（JSON 正文 `dyn_id_str`+`up`） | 照文档拼，未实机 |
+| 删动态 | `dynamic_svr/rm_dynamic` | 照文档拼，未实机 |
+
+踩过的坑记下来：点赞一开始一直回 **-400 请求错误**，原因不是签名也不是 cookie，是**参数名用错了**（我发了 `small_like` 并调了不存在的 `like/cancel` 路径）。WBI 签名对这条没用，别往那个方向找。
 
 ## 未验证 / 不支持
 - **写接口一个都没实机跑过**（要真登录 + 真发东西）。点赞/投币/收藏/关注/回评论的 URL 与参数按公开 web 端点的通用写法 + `csrf` 组装，`BiliSendDanmaku` 的 `x/v2/dm/web/send` 尤其没把握；第一次用请只开一个动作、先人工盯一次

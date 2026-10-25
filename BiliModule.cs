@@ -67,6 +67,8 @@ public partial class BiliModule(
                 + "要看自己的收藏夹/历史/稍后再看，先 BiliLogin(action=generate) 把登录链接发给主人扫（这链接能登录账号，只走私聊别发群里）。"
                 + "写动作（点赞/投币/收藏/关注/评论/弹幕）默认关，开着时也是先登记、拿到确认码再 BiliConfirm 执行。"
                 + "被 -352 风控挡住是 B站在要真实浏览器指纹，不是参数写错，别重试。"
+                + "写动作里只有「点赞」本机实测通过（同一端点带 like=1|2，用 has/like 即时回查，别看点赞总数——它有分钟级延迟）；"
+                + "投币/收藏/关注/评论/弹幕/发动态/删动态是照文档拼的，还没实机验过，被 -400 或 -352 拒就照实说，别硬重试。"
         };
         functionCaller.RegisterHandler(handler, DocumentMode.Implicit, cancellationToken: DestroyCancellationToken);
         return Task.CompletedTask;

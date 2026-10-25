@@ -184,14 +184,19 @@ public partial class BiliModule
     // ---- 写操作 ----
 
     [XmlFunction(FunctionMode.OneShot)]
-    [Description("点赞（undo=true 取消赞）。会回查一次视频统计，看点赞数有没有真的变")]
+    [Description("点赞（undo=true 取消）。实测：这条接口是同一个地址带 like=1|2，没有 like/cancel 那个路径；"
+        + "发完用 has/like 即时回查（点赞总数有分钟级延迟，不能靠它判断）")]
     public Task BiliLike(string target, bool undo = false) =>
         WriteAsync(BiliWrite.Like, target, undo ? "取消点赞" : "点赞", "", async (aid, bvid, csrf) =>
         {
             BiliApi api = OpenApi();
-            await api.PostAsync("https://api.bilibili.com/x/web-interface/archive/" + (undo ? "like/cancel" : "like"),
-                Form(new { aid, bvid, csrf }), DestroyCancellationToken);
-            return await ReadBackLikeAsync(bvid, aid);
+            await api.PostAsync("https://api.bilibili.com/x/web-interface/archive/like",
+                Form(new { aid, like = undo ? 2 : 1, csrf }), DestroyCancellationToken,
+                "https://www.bilibili.com/video/" + bvid + "/");
+            JsonNode has = await api.GetAsync("https://api.bilibili.com/x/web-interface/archive/has/like?aid=" + aid,
+                DestroyCancellationToken, "https://www.bilibili.com/video/" + bvid + "/");
+            return "即时回查 has_like=" + BiliJson.Text(has, "data") + "（1=已赞、0=未赞，与上面点的那次应当一致）；"
+                + "点赞总数有分钟级延迟，不拿来判定";
         });
     [XmlFunction(FunctionMode.OneShot)]
     [Description("投币，amount 1 或 2（每天 2 币额度由 B站自己管）；alsoLike=true 顺带点赞")]
@@ -293,6 +298,15 @@ public partial class BiliModule
                 return;
             case BiliWrite.Danmaku:
                 await BiliSendDanmaku(item.Target, item.Text);
+                return;
+            case BiliWrite.Dynamic:
+                await BiliPostDynamic(item.Text);
+                return;
+            case BiliWrite.DynamicDelete:
+                await BiliDeleteDynamic(item.Target);
+                return;
+            case BiliWrite.DynamicLike:
+                await BiliLikeDynamic(item.Target);
                 return;
             default:
                 throw new Exception(BiliGuard.Label(item.Write) + " 这种写动作还没实现，登记时就不该过闸门");

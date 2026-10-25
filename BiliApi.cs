@@ -153,6 +153,11 @@ public sealed class BiliApi : IDisposable
     {
         return Parse(await SendAsync(url, form, referer, cancellationToken), url);
     }
+    /// <summary>点赞动态这类接口要 application/json 正文，不是表单</summary>
+    public async Task<JsonNode> PostJsonAsync(string url, string json, CancellationToken cancellationToken, string? referer = null)
+    {
+        return Parse(await SendAsync(url, new Dictionary<string, string> { ["__json__"] = json }, referer, cancellationToken), url);
+    }
     /// <summary>扫码轮询要同时收 Set-Cookie 头，所以单独给一条能拿响应头的路</summary>
     public async Task<(string Body, string SetCookie)> GetWithSetCookieAsync(string url, CancellationToken cancellationToken)
     {
@@ -265,8 +270,15 @@ public sealed class BiliApi : IDisposable
             }
             if (form != null)
             {
-                request.Content = new FormUrlEncodedContent(form);
-                request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/x-www-form-urlencoded");
+                if (form.Count == 1 && form.ContainsKey("__json__"))
+                {
+                    request.Content = new StringContent(form["__json__"], Encoding.UTF8, "application/json");
+                }
+                else
+                {
+                    request.Content = new FormUrlEncodedContent(form);
+                    request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/x-www-form-urlencoded");
+                }
             }
             MarkSent();
             using HttpResponseMessage response = await http.SendAsync(request, cancellationToken);
