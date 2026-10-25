@@ -50,7 +50,7 @@ public class BiliConfig
 
     [DisplayName("凭据目录")]
     [Description("相对 Alife Storage。扫码登录后的 Cookie 存在这里的 cookies.json，只进不出：插件不提供导出完整 Cookie 的动作")]
-    public string CookieFolder { get; set; } = "BiliQuery";
+    public string CookieFolder { get; set; } = "Bili";
 
     [DisplayName("默认搜索排序")]
     [Description("可选 totalrank(综合)/click(播放)/stow(收藏)/coins(投币)/dm(弹幕)/newest(最新)。留空=综合；B站对部分排序会回 -352 风控，失败了插件会照实说")]

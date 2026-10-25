@@ -10,7 +10,7 @@ B 站全功能插件：**视频查询 + 账号能力 + 直播查询**合在一�
 
 ## 先说风险
 1. **写操作会真的改动账号**：点赞/投币/收藏/关注/评论/弹幕都以你的身份发出，B站与所有平台一样禁止自动化，频繁或机械节奏会被风控（回 `code=137`、`12008`，或干脆 -352）。所以默认 `EnableWrite=false`，且 `RequireConfirm=true`（先把「对哪条、发什么」报给主人，凭确认码才发）。
-2. **凭据只落本机**：Cookie 存在 `Storage\BiliQuery\cookies.json`，插件**没有导出 Cookie 的动作**，也不写口令；扫码链接只发给主人本人（拿到那条链接等于能登录他账号）。
+2. **凭据只落本机**：Cookie 存在 `Storage\Bili\cookies.json`，插件**没有导出 Cookie 的动作**，也不写口令；扫码链接只发给主人本人（拿到那条链接等于能登录他账号）。
 3. 登录态会静默失效：`BiliEnv` 会报 `isLogin`，别只看接口 code。
 
 ## 依赖
@@ -79,7 +79,7 @@ B 站全功能插件：**视频查询 + 账号能力 + 直播查询**合在一�
 | MaxCount | 30 | 直播榜单单次上限，钳 1~50（`page_size` 填 100 会被打回 20） |
 | DefaultItemCount | 10 | 列表类默认条数 |
 | DanmakuScanLimit | 3000 | 弹幕统计取样 |
-| CookieFolder | BiliQuery | Cookie 目录（相对 Storage） |
+| CookieFolder | Bili | Cookie 目录（相对 Storage） |
 | SearchOrder | 空 | 搜索默认排序，留空=综合 |
 
 ## 接口与实测
