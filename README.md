@@ -45,7 +45,7 @@ B 站全功能插件：**视频查询 + 账号能力 + 直播查询**合在一�
 | BiliMe() | 登录账号的昵称、UID、等级、硬币、大会员 |
 | BiliFavorites(mid?, take) | 某 UID 的收藏夹列表（不传 mid 就是自己的）；私密的接口不列 |
 | BiliFavItems(mediaId, page, take) | 收藏夹里的条目（私密的要登录） |
-| BiliWatchLater(page, take) | 我的稍后再看 |
+| BiliWatchLater(page, take) | 我的稍后再看（实测要打到 `x/v2/history/toview`，`x/collection/watching/later` 会甩 HTML） |
 | BiliHistory(size=20, keyword="") | 观看历史，可按标题找看过什么 |
 | BiliFollowing(mid?, page, take) | 关注列表（对方设了私密就取不到） |
 

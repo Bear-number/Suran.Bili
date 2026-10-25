@@ -110,11 +110,10 @@ public partial class BiliModule
     [Description("我的稍后再看列表（要登录）")]
     public async Task BiliWatchLater(int page = 1, int? take = null)
     {
-        string url = "https://api.bilibili.com/x/collection/watching/later?pn=" + Math.Clamp(page, 1, 200).ToString(CultureInfo.InvariantCulture)
-            + "&ps=" + ItemCount + "&platform=web";
+        // 实测：x/collection/watching/later 会甩 HTML，真正的稍后再看是 x/v2/history/toview（code 0，列表在 data.list）
         BiliApi api = OpenApi();
-        JsonNode data = await api.GetAsync(url, DestroyCancellationToken, "https://www.bilibili.com/watchlater/");
-        List<JsonNode?> list = ((data["data"]?.AsArray()) ?? new JsonArray()).ToList();
+        JsonNode data = await api.GetAsync("https://api.bilibili.com/x/v2/history/toview", DestroyCancellationToken, "https://www.bilibili.com/watchlater/");
+        List<JsonNode?> list = ((BiliJson.Pick(data, "data", "list")?.AsArray()) ?? new JsonArray()).ToList();
         if (list.Count == 0)
         {
             interactor.Poke("稍后再看是空的（或这个接口换了形状）");
