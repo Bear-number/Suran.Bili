@@ -75,13 +75,63 @@ public partial class BiliModule(
     }
 
     [XmlFunction(FunctionMode.OneShot)]
-    [Description("查视频详情：标题、UP主、分区、时长、发布时间、播放/点赞/投币/收藏/弹幕数、分P 列表。target 支持 BV号、av号、纯 aid 或整条链接")]
-    public async Task BiliVideo(string target)
+    [Description("查视频详情：标题、UP主、分区、时长、发布时间、播放/点赞/投币/收藏/弹幕数、分P 列表。target 支持 BV号、av号、纯 aid 或整条链接。"
+        + "action=play 时额外给出播放直链（要登录；直链约 2 小时过期，播放时必须带 Referer: https://www.bilibili.com/，否则 403）")]
+    public async Task BiliVideo(string target, string action = "")
     {
         BiliApi api = OpenApi();
         JsonNode data = await api.GetAsync(ViewUrl(target), DestroyCancellationToken);
         JsonNode item = data["data"]!;
-        interactor.Poke(DescribeVideo(item, data));
+        string text = DescribeVideo(item, data);
+        if (action.Trim().Equals("play", StringComparison.OrdinalIgnoreCase))
+        {
+            text += "\n" + await PlayUrlsAsync(api, item);
+        }
+        interactor.Poke(text);
+    }
+
+    /// <summary>
+    /// 播放直链。本机实测（2026-11-04）：playurl **不校验 wbi**——错误密钥、完全不带 w_rid 都返回 code=0，
+    /// 所以这里不做签名（少 90 行也少一份每天轮换的密钥）。真正决定能不能看的是登录态：
+    /// 带 cookie 给 1080P/8 条流，不带只给 360P/4 条。哪天这里开始回 -403，再按 B站 wbi 规则补签名。
+    /// </summary>
+    async Task<string> PlayUrlsAsync(BiliApi api, JsonNode item)
+    {
+        string bvid = item["bvid"]?.GetValue<string>() ?? "";
+        long cid = item["pages"] is JsonArray pages && pages.Count > 0 ? pages[0]!["cid"]!.GetValue<long>() : 0;
+        if (bvid.Length == 0 || cid == 0)
+        {
+            return "取直链失败：这条视频拿不到 bvid 或 cid（可能是番剧/课程，要用另一套接口）";
+        }
+
+        string url = "https://api.bilibili.com/x/player/playurl?bvid=" + bvid
+            + "&cid=" + cid.ToString(CultureInfo.InvariantCulture)
+            + "&qn=80&fnval=16&fnver=0&fourk=1";
+        JsonNode play = await api.GetAsync(url, DestroyCancellationToken);
+        JsonNode data = play["data"]!;
+
+        JsonArray? video = data["dash"]?["video"] as JsonArray;
+        JsonArray? audio = data["dash"]?["audio"] as JsonArray;
+        if (video == null || video.Count == 0)
+        {
+            return "这条视频没有 DASH 流（番剧/付费/直播转码常见），普通 playurl 取不到直链";
+        }
+
+        string quality = string.Join(" / ", (data["accept_description"] as JsonArray ?? new JsonArray())
+            .Select(node => node?.GetValue<string>() ?? "").Where(text => text.Length > 0));
+        string head = "播放直链（约 2 小时内有效；下载或播放时必须带 Referer: https://www.bilibili.com/，否则 403）\n"
+            + "  账号可用清晰度：" + (quality.Length > 0 ? quality : "未返回") + "\n"
+            + "  实际给到：qn=" + (video[0]?["id"]?.GetValue<int>() ?? 0)
+            + (Auth.IsLoaded ? "" : "（没登录，只能拿 360P；要高清先 BiliLogin）") + "\n";
+
+        return head
+            + "  视频流：" + Url(video[0]) + "\n"
+            + "  音频流：" + (audio != null && audio.Count > 0 ? Url(audio[0]) : "无（音轨合在视频里）");
+
+        static string Url(JsonNode? node)
+        {
+            return node?["baseUrl"]?.GetValue<string>() ?? node?["base_url"]?.GetValue<string>() ?? "无";
+        }
     }
 
     [XmlFunction(FunctionMode.OneShot)]
