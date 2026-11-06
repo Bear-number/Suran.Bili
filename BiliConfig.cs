@@ -7,8 +7,7 @@ namespace Suran.Bili;
 public class BiliConfig
 {
     [DisplayName("开关·允许写操作")]
-    [Description("点赞/投币/收藏/关注/发评论/发弹幕/稍后再看都算写操作，会真的改动账号与视频数据，默认关。"
-        + "打开后仍受下面「写操作先确认」与每日额度约束；这些写接口本机都还没实机验证过，第一次用建议只放一个动作")]
+    [Description("是否允许点赞、投币、收藏等写操作，默认关。")]
     public bool EnableWrite { get; set; } = false;
 
     [DisplayName("写操作先确认")]
@@ -24,16 +23,15 @@ public class BiliConfig
     public int MinWriteGapSeconds { get; set; } = 60;
 
     [DisplayName("HTTP代理")]
-    [Description("留空直连。B站 web 接口国内直连可用（本机 2026-10-24 实测），只有被地域或网络挡了才需要填，如 http://127.0.0.1:7890")]
+    [Description("HTTP 代理地址，留空直连。")]
     public string ProxyUrl { get; set; } = "";
 
     [DisplayName("请求超时（秒）")]
-    [Description("单次接口超时，实测两三秒回，低于 10 秒容易偶发失败")]
+    [Description("单次请求超时秒数，低于 10 秒容易偶发失败。")]
     public int RequestTimeoutSeconds { get; set; } = 20;
 
     [DisplayName("请求最小间隔（毫秒）")]
-    [Description("本机实测：不带 buvid 连打第三次起会被粘滞性 412（要等好几分钟才解）。底座已经自动去领 buvid3/buvid4，"
-        + "这里再留一道保险，默认 350 毫秒；被挡得厉害就调大")]
+    [Description("两次请求的最小间隔毫秒数，默认 350。")]
     public int MinRequestGapMs { get; set; } = 350;
 
     [DisplayName("直播·榜单单次最大条数")]
@@ -53,6 +51,6 @@ public class BiliConfig
     public string CookieFolder { get; set; } = "Bili";
 
     [DisplayName("默认搜索排序")]
-    [Description("可选 totalrank(综合)/click(播放)/stow(收藏)/coins(投币)/dm(弹幕)/newest(最新)。留空=综合；B站对部分排序会回 -352 风控，失败了插件会照实说")]
+    [Description("搜索排序方式，留空为综合。")]
     public string SearchOrder { get; set; } = "";
 }

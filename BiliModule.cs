@@ -18,7 +18,8 @@ namespace Suran.Bili;
     "B 站（bilibili）全功能：视频详情与分P、关键词搜索（可按播放/收藏/最新排）、热门、相关推荐、UP 主资料与粉丝数、"
     + "评论区与楼中楼、弹幕全文与高频词；扫码登录后还能看收藏夹、稍后再看、历史记录、关注列表，"
     + "并在你打开写开关后点赞、投币、收藏、关注、回评论、发弹幕（默认关，且默认要主人确认）；直播侧是分区树、各大区在线人气榜、大区人气一览、单个房间或主播在不在播。",
-    defaultCategory: "苏染的工具/B站")]
+    defaultCategory: "苏染的工具/B站",
+    EditorUI = typeof(BiliUI))]
 public partial class BiliModule(
     XmlFunctionCaller functionCaller,
     Interactor<BiliModule> interactor) :
